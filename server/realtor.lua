@@ -2,9 +2,10 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 local Listings = {}
 
--- Load listings on server start (optional: you can load from DB)
+-- Load listings on server start (optional)
 CreateThread(function()
-    -- For demo, start empty or you can load saved listings from DB here
+    -- Example: load realtor listings from DB if you have a listings table
+    -- For now start empty or implement your own loading logic
     Listings = {}
 end)
 
@@ -19,13 +20,13 @@ RegisterNetEvent('IFFIx_realtor:server:AddListing', function(listing)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     if Player then
-        -- Basic validation
         if listing.address and listing.price then
             listing.owner = Player.PlayerData.citizenid
             table.insert(Listings, listing)
             TriggerClientEvent('QBCore:Notify', src, "Listing added!", "success")
-            -- Notify all clients of updated listings
             TriggerClientEvent('IFFIx_realtor:client:UpdateListings', -1, Listings)
+            -- Optionally save to DB here with oxmysql:
+            -- exports.oxmysql:execute("INSERT INTO realtor_listings (...) VALUES (...)", {...})
         else
             TriggerClientEvent('QBCore:Notify', src, "Invalid listing data!", "error")
         end
@@ -48,13 +49,11 @@ RegisterNetEvent('IFFIx_realtor:server:PurchaseHouse', function(houseId)
     if houseIndex then
         local listing = Listings[houseIndex]
         if Player.Functions.RemoveMoney('bank', listing.price) then
-            -- Transfer ownership, update DB as needed
-            -- Example: Update house owner
-            MySQL.Async.execute("UPDATE IFFIx_houses SET owner = @owner WHERE id = @id", {
+            -- Transfer ownership in house DB
+            exports.oxmysql:execute("UPDATE IFFIx_houses SET owner = @owner WHERE id = @id", {
                 ['@owner'] = Player.PlayerData.citizenid,
                 ['@id'] = listing.id
             })
-            -- Remove listing from realtor list
             table.remove(Listings, houseIndex)
             TriggerClientEvent('QBCore:Notify', src, "House purchased via realtor!", "success")
             TriggerClientEvent('IFFIx_realtor:client:UpdateListings', -1, Listings)
