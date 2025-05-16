@@ -2,15 +2,14 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 local Houses = {}
 
--- Load houses from database on server start
+-- Load houses from database on server start using oxmysql
 CreateThread(function()
-    QBCore.Functions.ExecuteSql(false, "SELECT * FROM IFFIx_houses", {}, function(result)
-        if result then
-            for _, house in pairs(result) do
-                Houses[house.id] = house
-            end
+    local result = exports.oxmysql:executeSync("SELECT * FROM IFFIx_houses")
+    if result then
+        for _, house in pairs(result) do
+            Houses[house.id] = house
         end
-    end)
+    end
 end)
 
 -- Provide houses to clients on request
@@ -19,7 +18,7 @@ RegisterNetEvent('IFFIx_housing:server:RequestHouses', function()
     TriggerClientEvent('IFFIx_housing:client:ReceiveHouses', src, Houses)
 end)
 
--- Handle purchase request (simplified)
+-- Handle purchase request
 RegisterNetEvent('IFFIx_housing:server:BuyHouse', function(houseId)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
@@ -29,8 +28,8 @@ RegisterNetEvent('IFFIx_housing:server:BuyHouse', function(houseId)
         if not house.owner then
             if Player.Functions.RemoveMoney('bank', house.price) then
                 house.owner = Player.PlayerData.citizenid
-                -- Update DB
-                QBCore.Functions.ExecuteSql(false, "UPDATE IFFIx_houses SET owner = @owner WHERE id = @id", {
+                -- Update DB using oxmysql
+                exports.oxmysql:execute("UPDATE IFFIx_houses SET owner = @owner WHERE id = @id", {
                     ['@owner'] = house.owner,
                     ['@id'] = houseId
                 })
@@ -45,5 +44,3 @@ RegisterNetEvent('IFFIx_housing:server:BuyHouse', function(houseId)
         TriggerClientEvent('QBCore:Notify', src, "House not found!", "error")
     end
 end)
-
--- Additional server-side house management events can go here
